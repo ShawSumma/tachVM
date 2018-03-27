@@ -1,3 +1,6 @@
-fac(n) = fac(n-1)*n
-fac(1) = 1
-print(fac(10))
+arrow(x,y) = arrow(x,y-1) * arrow(x,y-1)
+arrow(x,1) = x
+fact(n) = fact(n-1)*n
+fact(1) = 1
+print(arrow(2,4))
+print(fact(10))

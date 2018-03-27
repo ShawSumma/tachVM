@@ -1,6 +1,6 @@
 holds = 0
-
-
+flows = 0
+last_line = 0
 def need(tree):
     if isinstance(tree, list):
         if tree != []:
@@ -12,25 +12,32 @@ def need(tree):
     elif t == 'name':
         return 1
     elif t == 'oper':
-        return need(tree['pre']) + need(tree['post']) - 1
+        return max(need(tree['pre']),need(tree['post']))
     elif t == 'fn':
         return need(tree['perams'])
     elif t == 'int':
+        return 1
+    elif t == 'str':
+        return 1
+    elif t == 'float':
         return 1
     elif t == 'code':
         return need(tree['data'])
     elif t == 'tuple':
         return need(tree['data'])
     elif t == 'flow':
-        return need(tree['condition']) + need(tree['then']) - 1
+        return need(tree['condition']) + need(tree['then'])
     else:
         print('need unkown', tree)
         exit()
 
+def ll(data):
+    return ''
 
 def line(tree):
     global holds
     global flags
+    global flows
     if isinstance(tree, list):
         return make(tree, r=True)
     elif tree['type'] == 'set':
@@ -60,9 +67,10 @@ def line(tree):
                 ret = [ret[0] + ' ' + str(len(ret) - 1)] + ret[1:]
                 ret = ''.join(i + '\n' for i in ret)
                 return ret
+            flags[-1] = None
     elif tree['type'] == 'name':
         ret = 'load %' + str(holds) + ' $' + tree['data'] + '\n'
-        flags = 'return'
+        flags[-1] = 'return'
         return ret
     elif tree['type'] == 'oper':
         op = tree['oper']
@@ -77,9 +85,9 @@ def line(tree):
         ret += tree['oper']
         ret += ' %' + str(o) + ' %' + str(a) + \
             ' %' + str(b)
-        holds -= 2
+        holds = o
         ret = ret.strip()+'\n'
-        flags = 'return'
+        flags[-1] = 'return'
         return ret
     elif tree['type'] in ['fn', 'tuple']:
         if tree['type'] == 'tuple':
@@ -87,53 +95,50 @@ def line(tree):
             tree['fn'] = {'data': 'list'}
         ret = ''
         h = holds
+        holds += need(tree['fn'])
         ns = []
         for i in tree['perams']:
             ret += make([i]) + '\n'
             ns.append(holds+need(i))
             holds = ns[-1]
         #holds = h
+        ret += make([tree['fn']])+'\n'
         ret += 'perams'
         for i,hi in zip(range(len(tree['perams'])),ns):
             ret += ' %' + str(hi-1)
         ret += '\n'
-        ret += 'call %' + str(h) + ' ' + tree['fn']['data']
+        ret += 'load %'+str(h+1)+' %'+str(holds)
+        ret += '\n'
+        ret += 'call %' + str(h) + ' %'+str(h+1)
         holds = h
         ret = ret.strip() + '\n'
-        flags = 'return'
+        flags[-1] = 'return'
         return ret
     elif tree['type'] == 'int':
-        flags = 'return'
+        flags[-1] = 'return'
         return 'int %' + str(holds) + ' ' + tree['data'] + '\n'
+    elif tree['type'] == 'float':
+        flags[-1] = 'return'
+        return 'float %' + str(holds) + ' ' + tree['data'] + '\n'
+    elif tree['type'] == 'str':
+        flags[-1] = 'return'
+        return 'str %' + str(holds) + ' ' + tree['data'] + '\n'
     elif tree['type'] == 'code':
-        flags = 'return'
+        flags[-1] = 'return'
         return make(tree['data']) + '\n'
-    elif tree['type'] == 'flow':
-        if tree['flow'] == 'if':
-            need(tree)
-            pre = make([tree['condition']])
-            mid = 'jump %' + str(holds)
-            post = make([tree['then']], r=True)
-            post = post.replace('\n\n', '\n')
-            post = post.strip()
-            mid += ' ' + str(len(post.split('\n')))
-            ret = pre + mid + '\n' + post
-            need(tree)
-            return ret
 
 
 def make(tree, r=False):
     global flags
-    uflags = flags
-    flags = None
+    flags.append(None)
     ret = ''
     for i in tree:
         ret += line(i) + '\n'
-        if flags == 'return' and r:
+        if flags[-1] == 'return' and r:
             ret += 'return %' + str(holds) + '\n'
-    flags = uflags
+    flags = flags[:-1]
     #ret = ret.replace('\n\n','\n')
     return ret.strip()
 
 
-flags = None
+flags = []

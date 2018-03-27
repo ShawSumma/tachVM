@@ -1,40 +1,61 @@
 import time
-def seths(name, val):
-    hs[int(name[1:])] = val
+import extern
+import threading
 
 
-def setvs(name, val):
+def seths(name, val, hname):
+    global hs
+    hs[hname][int(name[1:])] = val
+
+
+def setvs(name, val, hname):
     global vs
-    if name in vs:
-        print('immutable error on ',name)
+    if name in vs[hname]:
+        print('immutable error on ', name)
         exit()
+    if not type(name) in [type(str), type(int), type(float), type(tuple), type(list)]:
+        fs[hname][name] = val
     if name != 'del':
-        vs[name] = val
+        vs[hname][name] = val
 
 
-def get(name):
+def load_bui(hname):
+    global hs, vs, fs
+    vs[hname] = dict()
+
+
+def get(name, hname):
     if name[0] == '%':
-        return hs[int(name[1:])]
+        return hs[hname][int(name[1:])]
     elif name == '-':
         return None
     else:
-        if name[1:] in vs:
-            return vs[name[1:]]
-        else:
-            return fs[name[1:]]
+        if name[1:] in vs[hname]:
+            return vs[hname][name[1:]]
+        elif name[1:] in fs[hname]:
+            return fs[hname][name[1:]]
+        elif name[1:] in bs:
+            return name[1:]
+        elif name in bs:
+            return name
+        print('unkown ->', name, list(fs[hname]))
+        exit()
 
-def get_fn(fn,perams):
+
+def get_fn(fn, perams):
     best = None
     max = 0
     default = None
-    if isinstance(fn,dict):
+    if isinstance(fn, dict):
         fn = fn['fn']
-    #print(fn)
+    # print(fn)
     for can in fn:
         mats = 0
         kats = 0
         ps = can[0]
-        for pl,i in enumerate(ps):
+        if len(ps) != len(perams):
+            continue
+        for pl, i in enumerate(ps):
             i = i.split('_')
             if i[0] != 'name':
                 if i[1] == str(perams[pl]):
@@ -46,102 +67,172 @@ def get_fn(fn,perams):
         if max < mats:
             max = mats
             best = can[1]
-    #print(best)
+    # print(best)
     best = best if best != None else default
+    if best == None:
+        print('no candidate function')
+        exit()
     return best
-def run(bytecode):
-    # return
+
+
+def oo_get(a, b):
+    ret = vars(a)[b]
+    return ret
+
+
+def run(bytecode, name, place=0):
+    #print('\t',place)
+    load_bui(name)
     global hs_h
     global vs_h
     global vs
     global hs
     global fs
+    global rets
     if len(bytecode) == 0:
         return
     split = bytecode.split('\n')
-    place = 0
+    loops = 0
+    tot = 0
+    threads = 0
     points = {}
     calls = []
     callrets = []
     perams = []
+    ons = 0
     while place < len(split):
         cur = split[place].split()
+        #print(split[place])
+        #print('\t\t\t\t',list(hs))
         if len(cur) < 1:
             place += 1
             continue
-        #print(split[place])
-        #print('hs_h',hs_h)
-        #print('\t\t',hs)
         if cur[0] == 'int':
-            seths(cur[1], int(cur[2]))
+            seths(cur[1], int(cur[2]), name)
+        elif cur[0] == 'float':
+            seths(cur[1], float(cur[2]), name)
+        elif cur[0] == 'str':
+            seths(cur[1], ''.join(i + ' ' for i in cur[2:])[:-1], name)
         elif cur[0] == 'set':
-            setvs(cur[1], get(cur[2]))
+            setvs(cur[1], get(cur[2], name), name)
         elif cur[0] == 'load':
-            seths(cur[1], get(cur[2]))
+            seths(cur[1], get(cur[2], name), name)
         elif cur[0] == 'op':
-            a, b = get(cur[3]), get(cur[4])
-            res = ops[cur[1]](a, b)
-            seths(cur[2], res)
+            a, b = get(cur[3], name), get(cur[4], name)
+            op = cur[1]
+            if op == '-':
+                res = a-b
+            elif op == '*':
+                res = a*b
+            #print('-- op',cur[1],res,a,b,'--')
+            #print('\t\t\t\top :',place,'  ',cur[1],'with',[a,b])
+            seths(cur[2], res, name)
         elif cur[0] == 'def':
-            if not cur[1] in fs:
-                fs[cur[1]] = {'type':'fn','fn':[]}
-            fs[cur[1]]['fn'].append([cur[2:-1],place])
+            if not cur[1] in fs[name]:
+                fs[name][cur[1]] = {'type': 'fn', 'fn': []}
+            fs[name][cur[1]]['fn'].append([cur[2:-1], place])
             place += int(cur[-1])
         elif cur[0] == 'return':
-            got = get(cur[1])
-            vs = vs_h[-1]
-            hs = hs_h[-1]
+            got = get(cur[1], name)
+            if len(vs_h) == 0:
+                rets[name] = got
+                return
+            vs[name] = vs_h[-1]
+            hs[name] = hs_h[-1]
             vs_h = vs_h[:-1]
             hs_h = hs_h[:-1]
             perams = []
-            #print(callrets)
-            seths(callrets[-1], got)
+            seths(callrets[-1], got, name)
+            #print('\t\t',callrets[-1],'<-',got)
             place = calls[-1]
             calls = calls[:-1]
             callrets = callrets[:-1]
+            #print(got)
+            #print('\t\t\t\tre :',place,'   # from',got)
+            ons -= 1
         elif cur[0] == 'perams':
             perams = []
             for i in cur[1:]:
-                perams.append(get(i))
+                perams.append(get(i, name))
         elif cur[0] == 'call':
-            if cur[2] in fs or cur[2] in vs:
-                calls.append(place)
-                name = cur[2]
-                if name in vs:
-                    fn = vs[name]
+            ons += 1
+            cur[2] = get(cur[2], name)
+            #print('\t\t\t\ton :',place,'   ? with',perams)
+            if cur[2] not in bs and not isinstance(cur[2], str):
+                fn = cur[2]
+                if callable(fn):
+                    seths(cur[1], fn(*perams), name)
                 else:
-                    fn = fs[name]
-                fn['fn']
-                place = get_fn(fn,perams)
-                vs_h.append(vs)
-                hs_h.append(hs)
-                hs = {}
-                vs = {}
-                for pl, i in enumerate(perams):
-                    seths('%'+str(pl + 1), i)
-                #callrets.append('%'+str(int(cur[1][1:])-1))
-                callrets.append(cur[1])
-            elif cur[2] == 'print':
-                print(*perams)
-            elif cur[2] == 'list':
-                seths(cur[1],perams)
+                    calls.append(place)
+                    place = get_fn(fn, perams)
+                    vs_h.append(vs[name])
+                    hs_h.append(hs[name])
+                    hs[name] = {}
+                    vs[name] = {}
+                    for pl, i in enumerate(perams):
+                        seths('%' + str(pl + 1), i, name)
+                    # callrets.append('%'+str(int(cur[1][1:])-1))
+                    callrets.append(cur[1])
+            elif cur[2] == 'extern':
+                seths(cur[1], extern.imp(perams[0]), name)
             elif cur[2] == 'uxtime':
-                seths(cur[1],time.time())
+                seths(cur[1], time.time(), name)
+            elif cur[2] == 'load':
+                seths(cur[1], oo_get(perams[0], perams[1]), name)
+            elif cur[2] == 'thread':
+                kwargs = {
+                    'place': get_fn(perams[0]['fn'],perams[1:] if len(perams) > 1 else [])+1
+                }
+                args = (bytecode,name+(threads,))
+                hs[args[1]] = dict()
+                fs[args[1]] = fs[name]
+                rets
+                if len(perams) > 1:
+                    for pl, i in enumerate(perams[1:]):
+                        seths('%' + str(pl + 1), i, args[1])
+                t = threading.Thread(target=run,args=args,kwargs=kwargs)
+                t.start()
+                threads += 1
+                seths(cur[1], [t,args[1]], name)
+            elif cur[2] == 'await':
+                perams[0][0].join()
+                seths(cur[1], rets[perams[0][1]], name)
             else:
-                print('fn not found',cur[2])
+                print('fn not found', cur[2])
                 exit()
         elif cur[0] == 'jump':
             if not get(cur[1]):
-                place += int(cur[2])
-        #time.sleep(0.03)
+                place += int(cur[1][1:])
+        else:
+            print('err')
         place += 1
-    #print('hs =',hs)
-    #print('vs =',vs)
-    #print('fs =',fs)
+        loops += 1
+        #time.sleep(0.01)
+        #tot += int((time.time() - t) * 10**8)
+    # print(int(1/(tot/loops/10**8)))
 
-vs = {}
-hs = {}
-fs = {}
+
+def b_load(perams):
+    a = perams[0]
+    for i in perams[1:]:
+        a = oo_get(a, i)
+    seths(cur[1], a, name)
+
+
+bull = {
+    'print': print,
+    'int': int,
+    'float': float,
+    'str': str,
+    'trunc': lambda num, to: int(num * 10**to) / 10**to
+}
+
+vs = dict()
+hs = {('main',):dict()}
+fs = dict()
+rets = dict()
+fs = {('main',):bull}
+bs = ['extern', 'load', 'thread','await','uxtime']
 vs_h = []
 hs_h = []
 ops = {
@@ -157,5 +248,9 @@ ops = {
     '<=': lambda x, y: x <= y,
     '<': lambda x, y: x < y,
     '>': lambda x, y: x > y,
+    '&&': lambda x, y: x and y,
+    '||': lambda x, y: x or y,
+    '!!': lambda x, y: x[y] ,
+    '.': oo_get,
 }
 quit = exit

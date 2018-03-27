@@ -21,6 +21,6 @@ def tach(path):
 
 
 def imp(f):
-    f = py(f)
-    ext = SourceFileLoader("ext", f).load_module()
+    f = py(f)+'.py'
+    ext = SourceFileLoader('extern', f).load_module()
     return ext

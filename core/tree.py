@@ -78,7 +78,7 @@ def tree_line(code):
         return ret
     # its just a return value
     if len(code) == 1:
-        return {'type': code[0]['type'], 'data': code[0]['data']}
+        return {'type': code[0]['type'], 'data': code[0]['data'], 'line':code[0]['data']}
     # its math or listop
     if 'oper' in types:
         finds = []
@@ -89,13 +89,11 @@ def tree_line(code):
         #<> is in, not implemneted fully, equality part 1
         finds += [['<>'], ['<', '>', '<=', '>=']]
         # equality part 2
-        finds += [['!=', '=='], ['&&'], ['||']]
+        finds += [['!=', '=='], ['||', '&&']]
         # list push and pop
         finds += [['->', '<-']]
         # set
         finds += [['-=', '+=', '/=', '**=', '*=', '=', '?=']]
-        # new op, force return and force stay
-        finds += [['~']]
         # its backwards
         finds = finds[::-1]
         # ob is operator break flag
