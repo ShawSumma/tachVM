@@ -1,6 +1,8 @@
 holds = 0
 flows = 0
 last_line = 0
+
+
 def need(tree):
     if isinstance(tree, list):
         if tree != []:
@@ -31,13 +33,17 @@ def need(tree):
         print('need unkown', tree)
         exit()
 
+
 def ll(data):
     return ''
+
 
 def line(tree):
     global holds
     global flags
     global flows
+    if tree == None:
+        return ''
     if isinstance(tree, list):
         return make(tree, r=True)
     elif tree['type'] == 'set':
@@ -46,7 +52,7 @@ def line(tree):
                 o = holds
                 holds += need(tree['post'])
                 a = holds
-                ret = line(tree['post'])
+                ret = make([tree['post']])+'\n'
                 holds -= need(tree['post'])
                 ret += 'set '
                 ret += tree['pre']['data']
@@ -57,7 +63,7 @@ def line(tree):
                 ret = ''
                 ret += 'def ' + tree['pre']['fn']['data']
                 for i in tree['pre']['perams']:
-                    ret += ' '+i['type']+'_'+i['data']
+                    ret += ' ' + i['type'] + '_' + i['data']
                 ret += '\n'
                 for pl, i in enumerate(tree['pre']['perams']):
                     ret += 'set ' + i['data'] + ' %'
@@ -77,39 +83,36 @@ def line(tree):
         o = holds
         holds += need(tree['pre'])
         a = holds
-        ret = line(tree['pre'])
+        ret = make([tree['pre']])+'\n'
         holds += need(tree['post'])
         b = holds
-        ret += line(tree['post'])
+        ret += make([tree['post']])+'\n'
         ret += 'op '
         ret += tree['oper']
         ret += ' %' + str(o) + ' %' + str(a) + \
             ' %' + str(b)
         holds = o
-        ret = ret.strip()+'\n'
+        ret = ret.strip() + '\n'
         flags[-1] = 'return'
         return ret
-    elif tree['type'] in ['fn', 'tuple']:
-        if tree['type'] == 'tuple':
-            tree['perams'] = tree['data']
-            tree['fn'] = {'data': 'list'}
+    elif tree['type'] == 'fn':
         ret = ''
         h = holds
         holds += need(tree['fn'])
         ns = []
         for i in tree['perams']:
             ret += make([i]) + '\n'
-            ns.append(holds+need(i))
+            ns.append(holds + need(i))
             holds = ns[-1]
         #holds = h
-        ret += make([tree['fn']])+'\n'
+        ret += make([tree['fn']]) + '\n'
         ret += 'perams'
-        for i,hi in zip(range(len(tree['perams'])),ns):
-            ret += ' %' + str(hi-1)
+        for i, hi in zip(range(len(tree['perams'])), ns):
+            ret += ' %' + str(hi - 1)
         ret += '\n'
-        ret += 'load %'+str(h+1)+' %'+str(holds)
+        ret += 'load %' + str(h + 1) + ' %' + str(holds)
         ret += '\n'
-        ret += 'call %' + str(h) + ' %'+str(h+1)
+        ret += 'call %' + str(h) + ' %' + str(h + 1)
         holds = h
         ret = ret.strip() + '\n'
         flags[-1] = 'return'
@@ -122,14 +125,63 @@ def line(tree):
         return 'float %' + str(holds) + ' ' + tree['data'] + '\n'
     elif tree['type'] == 'str':
         flags[-1] = 'return'
-        return 'str %' + str(holds) + ' ' + tree['data'] + '\n'
+        ret = 'str %' + str(holds) + ' ' + tree['data'] + '|\n'
+        return ret
     elif tree['type'] == 'code':
         flags[-1] = 'return'
         return make(tree['data']) + '\n'
-
-
+    elif tree['type'] == 'flow':
+        if tree['flow'] == 'if':
+            h = holds
+            holds += need(tree['condition'])
+            pre = make([tree['condition']]) + '\n'
+            jmp = 'jump %' + str(holds)+' '
+            post = make([tree['then']])
+            holds += need(tree['then'])
+            ret = pre + jmp + str(len(post.split('\n')))+'\n'+post
+            holds = h
+            return ret
+        if tree['flow'] == 'while':
+            h = holds
+            holds += need(tree['condition'])
+            pre = make([tree['condition']]) + '\n'
+            jmp = 'jump %' + str(holds)+' '
+            post = make([tree['then']])
+            holds += need(tree['then'])
+            ret_a = pre + jmp + str(len(post.split('\n'))+2)+'\n'+post
+            h = holds
+            holds += 1
+            ret = 'load %'+str(holds)+' $false\n'
+            ret += 'jump %'+str(holds)+' -'+str(len(ret_a.split('\n'))+2)
+            ret = ret_a+'\n'+ret
+            return ret
+    elif tree['type'] == 'tuple':
+        ret = ''
+        h = holds
+        tree['fn'] = {'type':'name','data':'list'}
+        tree['perams'] = tree['data']
+        holds += need(tree['fn'])
+        ns = []
+        for i in tree['perams']:
+            ret += make([i]) + '\n'
+            ns.append(holds + need(i))
+            holds = ns[-1]
+        #holds = h
+        ret += make([tree['fn']]) + '\n'
+        ret += 'perams'
+        for i, hi in zip(range(len(tree['perams'])), ns):
+            ret += ' %' + str(hi - 1)
+        ret += '\n'
+        ret += 'load %' + str(h + 1) + ' %' + str(holds)
+        ret += '\n'
+        ret += 'call %' + str(h) + ' %' + str(h + 1)
+        holds = h
+        ret = ret.strip() + '\n'
+        flags[-1] = 'return'
+        return ret
 def make(tree, r=False):
     global flags
+    declared = []
     flags.append(None)
     ret = ''
     for i in tree:

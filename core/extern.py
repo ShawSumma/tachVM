@@ -1,4 +1,5 @@
 from importlib.machinery import SourceFileLoader
+import importlib
 from config import tach_path
 
 
@@ -24,3 +25,6 @@ def imp(f):
     f = py(f)+'.py'
     ext = SourceFileLoader('extern', f).load_module()
     return ext
+
+def pys_std(f):
+    return importlib.import_module(f)

@@ -1,23 +1,27 @@
 import lex
 import tree
-import run
 import sys
 import gen
 import view
 import time
+import compile as comp
+#import mid_runtime as run
 
-def run_code(code):
+def run_code(code,mid=0):
     toks = lex.make(code)
     code_tree = tree.tree(toks)
     #ret = run.run(code_tree)
     #view.view(code_tree)
-    ret = gen.make(code_tree,r=False)
-    f = open('interm.ion','w')
+
+    ret = gen.make(code_tree)
+    f = open('core/emit/interm.rion','w')
     f.write(ret)
     f.close()
-    run.run(ret,('main',))
-    return ret
-
+    comd = comp.comp(ret)
+    f = open('core/emit/out.py','w')
+    f.write(comd)
+    f.close()
+    print('done')
 
 def repl():
     while 1:

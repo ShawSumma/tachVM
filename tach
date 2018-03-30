@@ -1,1 +1,2 @@
 pypy3 -B core/main.py $1
+pypy3 core/emit/out.py

@@ -78,7 +78,7 @@ def tree_line(code):
         return ret
     # its just a return value
     if len(code) == 1:
-        return {'type': code[0]['type'], 'data': code[0]['data'], 'line':code[0]['data']}
+        return {'type': code[0]['type'], 'data': code[0]['data'], 'line':code[0]['line'] if 'line' in code[0] else None}
     # its math or listop
     if 'oper' in types:
         finds = []
