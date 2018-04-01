@@ -1,15 +1,36 @@
+import inspect
 class curry:
-    def __init__(self,curry,fn):
-        self.curry = curry
+    def __init__(self, curry, fn):
+        self.curry = list(curry)
         self.fn = fn
+
     def __str__(self):
-        return "<curry with %s>" % list(self.curry)
+        return "<function with curry>"
     __repr__ = __str__
+
+
+class flat_fn:
+    def __init__(self):
+        self.pairs = []
+
+    def append(self, point):
+        self.pairs.append(point)
+
+    def __str__(self):
+        return '<function>'
+    __repr__ = __str__
+
+
 def get_fn(fn, perams):
-    if isinstance(fn,curry):
-        perams = fn.curry+perams
+    perams = list(perams)
+    if isinstance(fn, curry):
+        perams = fn.curry + perams
         fn = fn.fn
-    #print(perams)
+    elif isinstance(fn, flat_fn):
+        fn = fn.pairs
+    if callable(fn):
+        return get_py_fn(fn,perams)
+    # print(perams)
     best = None
     max = 0
     default = None
@@ -31,7 +52,7 @@ def get_fn(fn, perams):
             else:
                 kats += 1
         if kats == len(perams):
-            alt = [can[1]]+alt
+            alt = [can[1]] + alt
             default = can[1]
         if max < mats:
             max = mats
@@ -39,18 +60,55 @@ def get_fn(fn, perams):
     # print(best)
     best = best if best != None else default
     if best == None:
-        #curry
+        best = []
+        max = 0
+        default = None
+        if isinstance(fn, dict):
+            fn = fn['fn']
+        # print(fn)
+        alt = []
         for can in fn:
-            r = []
-            if len(can[0]) > len(perams):
-                #print(can[1])
-                r.append(can)
-            ret = curry(perams,r)
-            return ret
-    return [best,perams]
+            mats = 0
+            kats = 0
+            ps = can[0]
+            ps = ps[:len(perams)]
+            for pl, i in enumerate(ps):
+                i = i.split('_')
+                if i[0] != 'name':
+                    if i[1] == str(perams[pl]):
+                        mats += 1
+                else:
+                    kats += 1
+            if kats == len(perams):
+                alt = [can[1]] + alt
+                default = can[1]
+            if max <= mats:
+                max = mats
+                best.append(can)
+        ret = curry(perams, best)
+        return ret
+    return [best, perams]
+
+
+def get_py_fn(fn,perams):
+    perams = list(perams)
+    if isinstance(fn, curry):
+        perams = fn.curry + perams
+        fn = fn.fn
+    ins = inspect.getargspec(fn)
+    maxi = len(ins.args)
+    if ins.varargs != None:
+        if maxi <= len(perams):
+            return fn(*perams)
+    if maxi == len(perams):
+        return fn(*perams)
+    if maxi > len(perams):
+        return curry(perams,fn)
+    print('no candidate function')
+    exit()
 
 def i_ret(val):
-    #return
+    # return
     global hold
     global s_vs
     global vs
@@ -67,7 +125,9 @@ def i_ret(val):
     hold[rets[-1]] = got
     rets = rets[:-1]
     calls = calls[:-1]
-def i_call(into,fn):
+
+
+def i_call(into, fn):
     global hold
     global s_vs
     global vs
@@ -78,7 +138,7 @@ def i_call(into,fn):
     global line
     if not callable(hold[fn]):
         got = get_fn(hold[fn], perams)
-        if isinstance(got,list):
+        if isinstance(got, list):
             s_vs.append(vs)
             s_hold.append(hold)
             calls.append(line)
@@ -87,9 +147,9 @@ def i_call(into,fn):
             line = hold[fn]
             vs = {}
             hold = {}
-            for pl,i in enumerate(got[1]):
-                hold[pl+1] = i
+            for pl, i in enumerate(got[1]):
+                hold[pl + 1] = i
         else:
             hold[into] = got
     else:
-        hold[into] = hold[fn](*perams)
+        hold[into] = get_py_fn(hold[fn],perams)

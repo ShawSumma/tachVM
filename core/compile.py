@@ -29,7 +29,7 @@ def instr(stri):
     if ins[0] == 'def':
         ret = ''
         ret += 'if not \'' + ins[1] + '\' in funcs:\n'
-        ret += '\tfuncs[\'' + ins[1] + '\'] = []\n'
+        ret += '\tfuncs[\'' + ins[1] + '\'] = flat_fn()\n'
         g = ''.join('\'' + i + '\', ' for i in ins[2:-1])
         ret += 'funcs[\'' + ins[1] + '\'].append(((' + g + '), '+str(pl)+'))\n'
         #ret += 'vs[\'' + ins[1] + '\'] = ' + str(pl)+'\n'
