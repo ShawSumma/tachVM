@@ -65,7 +65,7 @@ def tree_line(code):
     # types of tokens
     types = [i['type'] for i in code]
     # currently implemneted: if, else, loop, and while
-    if datas[0] in ['if', 'else', 'elif', 'while', 'do', 'loop']:
+    if datas[0] in ['if', 'else', 'elif', 'while', 'do', 'loop', 'ret']:
         ret = {
             'type': 'flow',
             'flow': datas[0],
@@ -73,12 +73,14 @@ def tree_line(code):
             'then': code[-1]
         }
         # loops take no perams
-        if datas[0] == 'loop':
+        if datas[0] in ['loop']:
             ret['condition'] = {'type': 'int', 'data': '1'}
+        elif datas[0] in ['ret']:
+            ret['then'] = tree_line(code[1:])
         return ret
     # its just a return value
     if len(code) == 1:
-        return {'type': code[0]['type'], 'data': code[0]['data'], 'line':code[0]['line'] if 'line' in code[0] else None}
+        return {'type': code[0]['type'], 'data': code[0]['data'], 'line': code[0]['line'] if 'line' in code[0] else None}
     # its math or listop
     if 'oper' in types:
         finds = []
@@ -86,7 +88,7 @@ def tree_line(code):
         finds += [['error'], ['.'], ['!', '!!'], ['..']]
         # common math
         finds += [['**', '^'], ['*', '/', '%'], ['+', '-']]
-        #<> is in, not implemneted fully, equality part 1
+        # <> is in, not implemneted fully, equality part 1
         finds += [['<>'], ['<', '>', '<=', '>=']]
         # equality part 2
         finds += [['!=', '=='], ['||', '&&']]
@@ -123,6 +125,8 @@ def tree_line(code):
                 'pre': tree_line(code[:oper_ind]),
                 'post': tree_line(code[oper_ind + 1:])
             }
+        if oper == '.':
+            code[oper_ind + 1]['type'] = 'str'
         return {
             'type': 'oper',
             'oper': oper,

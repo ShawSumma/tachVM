@@ -1,0 +1,20 @@
+def R_f name_x 15
+def B_0_0_B 11
+load B_0_0_B_0_C_A R_x
+int B_0_0_B_0_C_B 2
+oper == B_0_0_B_0_C B_0_0_B_0_C_A B_0_0_B_0_C_B
+jump not B_0_0_B_0_C 6
+def B_0_0_B_0_B 3
+int B_0_0_B_0_B_0 0
+return B_0_0_B_0_B_0
+load B_0_0_B_0 B_0_0_B_0_B
+perams
+do B_0_0_B_0 B_0_0_B_0_B
+load B_0_0 B_0_0_B
+perams
+do B_0_0 B_0_0_B
+return B_0_0
+load B_1_F R_f
+int B_1_P_0 5
+perams B_1_P_0
+call B_1 B_1_F
